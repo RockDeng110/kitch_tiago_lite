@@ -57,7 +57,10 @@ wait_for_lidar()
 # WP = [(0, 0), (0.75, -0.6), (0.54, -2.75), (-0.62, -3.16), (-1.67, -2.74), (-1.8, 0), (-1, 0.14), 
 #       (-1.8, 0), (-1.67, -2.74), (-0.62, -3.16), (0.54, -2.75), (0.75, -0.6),  (0, 0)]
 
-WP = [(0, 0), (0.47, -0.256), (0.558, -1.19), (4.16, -2.58), (-0.08, -3.11), (-1.11, -3.13), (-1.67, -2.76), (-1.7, -2.33), (-1.7, -1.38), (-1.72, -0.574), (-1.28, 0.247), (-0.612, 0.309)]
+WP = [(0, 0), (0.47, -0.256), (0.62, -0.88), 
+      (0.559, -2.43), (-0.08, -3.11), (-1.11, -3.13), 
+      (-1.67, -2.76), (-1.7, -2.33), (-1.7, -1.38), 
+      (-1.72, -0.574), (-1.28, 0.247), (-0.612, 0.309)]
 index = 0  # max point number 15
 
 # marker = robot.getFromDef("marker").getField("translation")
@@ -112,13 +115,13 @@ while robot.step(TIMESTEP) != -1:
     print(f"rho: {rho}, alpha: {alpha}, index: {index}")
 
     # Switch to next waypoint if close enough
-    if rho < 0.1 and index < len(WP) - 1 and index >= 0:
+    if rho < 0.1 and index < len(WP) and index >= 0:
         prev_index = index
         if move_forward == 1:
             index += 1
         else:
             index -= 1
-        if index == len(WP) - 1:
+        if index >= len(WP) - 1:
             move_forward = 0
         print(f"Reached waypoint {prev_index}, moving to waypoint {index}")
 
