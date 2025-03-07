@@ -826,8 +826,8 @@ Robot {
   translation 0 0 0.095
   children [
     Display {
-      width 300
-      height 300
+      width 450
+      height 567
     }
     Compass {
     }
