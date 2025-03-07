@@ -213,6 +213,12 @@ while robot.step(TIMESTEP) != -1:
     # display.setColor(color)
     # display.drawPixel(px, py)
 
+    
+    # draw trajectory in display
+    px, py = world2map(xw, yw)
+    # print(f"px: {px} py: {py}")
+    display.setColor(0xFF0000)
+    display.drawPixel(px,py)
 
     # LIDAR processing
     ranges = lidar.getRangeImage()
@@ -243,7 +249,7 @@ while robot.step(TIMESTEP) != -1:
             # Apply LiDAR sensor offset
             x_i = x_i + LIDAR_OFFSET_X
             y_i = y_i + LIDAR_OFFSET_Y
-            
+
             x_r.append(x_i)
             y_r.append(y_i)
 
