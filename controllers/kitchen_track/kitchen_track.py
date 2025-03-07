@@ -106,14 +106,14 @@ def calculate_robot_pose():
 
 # Convert world coordinates to map
 
-def world2map(xw, yw, map_width=450, map_height=567, 
+def world2map(xw, yw, map_width=400, map_height=504, 
               world_min_x=-2.25, world_max_x=2.25, 
               world_min_y=-3.92, world_max_y=1.75):
     scale_x = map_width / (world_max_x - world_min_x)
     scale_y = map_height / (world_max_y - world_min_y)
     px = int((xw - world_min_x) * scale_x)
     py = int((yw - world_min_y) * scale_y)
-    #py = map_height - 1 - py  # Invert Y coordinate
+    py = map_height - 1 - py  # Invert Y coordinate
     #print(f"Mapped X: {px}, Mapped Y: {py}")
 
     return max(0, min(map_width - 1, px)), max(0, min(map_height - 1, py))
@@ -171,7 +171,7 @@ def shortest_turn_angle(target_angle, current_angle):
 move_forward = 1
 while robot.step(TIMESTEP) != -1:
     calculate_robot_pose()
-    print(f"GPS position: xw={xw}, yw={yw}, theta={omegaz}")
+    # print(f"GPS position: xw={xw}, yw={yw}, theta={omegaz}")
 
 
     # Compute rho (distance to target)
@@ -197,7 +197,7 @@ while robot.step(TIMESTEP) != -1:
         print(f"Reached waypoint {prev_index}, moving to waypoint {index}")
 
     # Compute wheel velocities with improved parameters
-    p1, p2 = 6.0, 3.0
+    p1, p2 = 2.0, 3.0
     leftSpeed = -alpha * p1 + rho * p2
     rightSpeed = alpha * p1 + rho * p2
     leftMotor.setVelocity(max(min(leftSpeed, MAX_SPEED), -MAX_SPEED))
@@ -239,6 +239,11 @@ while robot.step(TIMESTEP) != -1:
             # Robot's coordinate transformation
             x_i = ranges[i] * np.cos(angle)
             y_i = ranges[i] * np.sin(angle)
+
+            # Apply LiDAR sensor offset
+            x_i = x_i + LIDAR_OFFSET_X
+            y_i = y_i + LIDAR_OFFSET_Y
+            
             x_r.append(x_i)
             y_r.append(y_i)
 
