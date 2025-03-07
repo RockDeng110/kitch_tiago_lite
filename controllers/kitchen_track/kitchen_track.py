@@ -118,6 +118,46 @@ def world2map(xw, yw, map_width=400, map_height=504,
 
     return max(0, min(map_width - 1, px)), max(0, min(map_height - 1, py))
 
+def world2mapv(xw, yw, map_width=400, map_height=504, 
+              world_min_x=-2.25, world_max_x=2.25, 
+              world_min_y=-3.92, world_max_y=1.75):
+    scale_x = map_width / (world_max_x - world_min_x)
+    scale_y = map_height / (world_max_y - world_min_y)
+    
+    # Apply scaling
+    px = ((xw - world_min_x) * scale_x).astype(int)
+    py = ((yw - world_min_y) * scale_y).astype(int)
+    
+    # Invert Y coordinate
+    py = map_height - 1 - py
+
+    # Clamp values to be within map bounds
+    px = np.clip(px, 0, map_width - 1)
+    py = np.clip(py, 0, map_height - 1)
+
+    return px, py
+
+def fft_convolve2d(image, kernel):
+    # Pad the image and kernel to the same size
+    pad_x = image.shape[0] + kernel.shape[0] - 1
+    pad_y = image.shape[1] + kernel.shape[1] - 1
+    
+    padded_image = np.pad(image, ((0, pad_x - image.shape[0]), (0, pad_y - image.shape[1])), mode='constant')
+    padded_kernel = np.pad(kernel, ((0, pad_x - kernel.shape[0]), (0, pad_y - kernel.shape[1])), mode='constant')
+
+    # Perform the FFT on both image and kernel
+    fft_image = np.fft.fft2(padded_image)
+    fft_kernel = np.fft.fft2(padded_kernel)
+
+    # Multiply in the frequency domain (element-wise)
+    result_fft = fft_image * fft_kernel
+
+    # Perform the inverse FFT to get the convolved image
+    result = np.fft.ifft2(result_fft)
+    
+    # Return the real part of the convolution result
+    return np.real(result)
+
 # Initialize map
 display = robot.getDevice('display')
 display.setColor(0xFF0000)
@@ -203,16 +243,6 @@ while robot.step(TIMESTEP) != -1:
     leftMotor.setVelocity(max(min(leftSpeed, MAX_SPEED), -MAX_SPEED))
     rightMotor.setVelocity(max(min(rightSpeed, MAX_SPEED), -MAX_SPEED))
 
-    # # Display trajectory
-    # px, py = world2map(xw, yw)
-    # # Increment probability (up to 1)
-    # map[px, py] = min(1, map[px, py] + 0.01)
-    # # Convert probability to grayscale (0-255)
-    # v = int(map[px, py] * 255)
-    # color = v * 256**2 + v * 256 + v  # Convert to 24-bit color
-    # display.setColor(color)
-    # display.drawPixel(px, py)
-
 
     # draw trajectory in display
     px, py = world2map(xw, yw)
@@ -232,69 +262,36 @@ while robot.step(TIMESTEP) != -1:
     angles = np.linspace(degrees_to_radians(120), degrees_to_radians(-120), 667)
     angles = angles[LIDAR_MIN_INDEX:LIDAR_MAX_INDEX]
    
-    x_r, y_r = [], [] # coordinates in robot's system
-    x_w, y_w = [], [] # coordinates in world's system
-    for i, angle in enumerate(angles):
-        try:
-            # print(f"Angle {angle:.2f}, Distance {ranges[i]:.2f}")
-            # Validate the range value
-            # if not np.isfinite(ranges[i]) or abs(ranges[i]) > 1:
-            #     #print(f"Skipping invalid range at index {i}: {ranges[i]}")
-            #     continue
-            
-            # Robot's coordinate transformation
-            x_i = ranges[i] * np.cos(angle)
-            y_i = ranges[i] * np.sin(angle)
+    
+    # Step 1: Convert polar to Cartesian in robot's coordinate frame
+    x_r = ranges * np.cos(angles)
+    y_r = ranges * np.sin(angles)
 
-            # Apply LiDAR sensor offset
-            x_i = x_i + LIDAR_OFFSET_X
-            y_i = y_i + LIDAR_OFFSET_Y
+    # Step 2: Apply LiDAR sensor offset
+    x_r += LIDAR_OFFSET_X
+    y_r += LIDAR_OFFSET_Y
 
-            x_r.append(x_i)
-            y_r.append(y_i)
+    # Step 3: Transform to world coordinates
+    cos_omega = np.cos(omegaz)
+    sin_omega = np.sin(omegaz)
 
-            # World's coordinate transformation
-            x_w_s = x_i * np.cos(omegaz) - y_i * np.sin(omegaz) + xw
-            y_w_s = x_i * np.sin(omegaz) + y_i * np.cos(omegaz) + yw
+    x_w = x_r * cos_omega - y_r * sin_omega + xw
+    y_w = x_r * sin_omega + y_r * cos_omega + yw
 
-            # Clamp display coordinates
-            #x_w_s = max(0, min(300, x_w_s))
-            #y_w_s = max(0, min(300, y_w_s))
+    # Step 4: Convert world coordinates to pixel indices
+    px, py = world2mapv(x_w, y_w)
 
-            # Append valid coordinates
-            x_w.append(x_w_s)
-            y_w.append(y_w_s)
+    # Step 5: Increment probability values (clamped to max 1)
+    map[px, py] = np.minimum(1, map[px, py] + 0.01)
 
-            # Debugging output
-            #print(f"i: {i}, ranges[i]: {ranges[i]:.2f}, angle: {angle:.2f}, x_i: {x_i:.2f}, y_i: {y_i:.2f}, omegaz: {omegaz:.2f}")
+    # Step 6: Convert probability values to grayscale (0-255)
+    v = (map[px, py] * 255).astype(int)
+    color = (v * 256**2 + v * 256 + v).astype(int)  # Ensure NumPy int32 -> Python int
 
-            # Display pixel
-            #print(f"Drawing pixel at ({x_w_s}, {y_w_s})")
-            #display.setColor(0xFFFFFF)
-            #px, py = world2map(x_w_s, y_w_s)
-            #display.drawPixel(px,py)
-            # print(f"obstacle in robot axes: X: {x_i}, Y: {y_i}")
-            # print(f"obstacle in world axes: X: {x_w_s}, Y: {y_w_s}")
-            
-            # Convert world coordinates to map indices
-            px, py = world2map(x_w_s, y_w_s)
-
-            # Increment probability (up to 1)
-            map[px, py] = min(1, map[px, py] + 0.01)
-            # update_probability_map(px, py, detected=True)
-
-
-            # # Convert probability to grayscale (0-255)
-            v = int(map[px, py] * 255)
-            color = v * 256**2 + v * 256 + v  # Convert to 24-bit color
-
-            # Display the pixel
-            display.setColor(color)
-            display.drawPixel(px, py)
-            # print(f"Drawing trajectory pixel at ({px}, {py}) with value {map[px, py]:.2f}")
-        except Exception as e:
-            print(f"Error at index {i}: {e}")
-            continue
+    # Update display pixels (vectorized loop)
+    for i in range(len(px)):
+        display.setColor(int(color[i]))  # Convert NumPy int to Python int
+        display.drawPixel(int(px[i]), int(py[i]))  # Ensure indices are Python int
 
 
     # Plot the scan for debug
@@ -306,7 +303,8 @@ while robot.step(TIMESTEP) != -1:
 
     # Perform 2D convolution to compute the configuration space every 100 timesteps
     if robot.step(TIMESTEP) % 100 == 0:
-        cmap = signal.convolve2d(map, kernel, mode='same')
+        # cmap = signal.convolve2d(map, kernel, mode='same')
+        cmap = fft_convolve2d(map, kernel)  # Use FFT-based convolution
         cspace = cmap > 0.9  # Threshold to mark obstacles
         
         # Visualize the configuration space
