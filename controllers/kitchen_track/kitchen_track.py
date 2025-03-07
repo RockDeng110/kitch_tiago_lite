@@ -213,7 +213,7 @@ while robot.step(TIMESTEP) != -1:
     # display.setColor(color)
     # display.drawPixel(px, py)
 
-    
+
     # draw trajectory in display
     px, py = world2map(xw, yw)
     # print(f"px: {px} py: {py}")
@@ -303,3 +303,14 @@ while robot.step(TIMESTEP) != -1:
     # plt.scatter(x_w, y_w, s=2, label="World Frame", color="orange")  
     # plt.legend()
     # plt.pause(0.01)
+
+    # Perform 2D convolution to compute the configuration space every 100 timesteps
+    if robot.step(TIMESTEP) % 100 == 0:
+        cmap = signal.convolve2d(map, kernel, mode='same')
+        cspace = cmap > 0.9  # Threshold to mark obstacles
+        
+        # Visualize the configuration space
+        plt.clf()
+        plt.imshow(cspace, cmap='gray')
+        plt.title("Configuration Space")
+        plt.pause(0.001)
