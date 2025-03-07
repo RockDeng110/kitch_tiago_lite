@@ -54,6 +54,8 @@ def wait_for_lidar():
 
 wait_for_lidar()
 
+angles = np.linspace(3.1415, -3.1415, 360)
+
 # WP = [(0, 0), (0.75, -0.6), (0.54, -2.75), (-0.62, -3.16), (-1.67, -2.74), (-1.8, 0), (-1, 0.14), 
 #       (-1.8, 0), (-1.67, -2.74), (-0.62, -3.16), (0.54, -2.75), (0.75, -0.6),  (0, 0)]
 
@@ -90,6 +92,7 @@ def world2map(xw, yw, map_width=300, map_height=300,
 
 # Initialize map
 display = robot.getDevice('display')
+display.setColor(0xFF0000)
 map = np.zeros((300, 300))
 kernel_size = 30
 kernel = np.ones((kernel_size, kernel_size))
@@ -132,24 +135,71 @@ while robot.step(TIMESTEP) != -1:
     leftMotor.setVelocity(max(min(leftSpeed, MAX_SPEED), -MAX_SPEED))
     rightMotor.setVelocity(max(min(rightSpeed, MAX_SPEED), -MAX_SPEED))
 
-    # Display trajectory
-    px, py = world2map(xw, yw)
-    display.setColor(0xFF0000)
-    display.drawPixel(px, py)
+    # # Display trajectory
+    # px, py = world2map(xw, yw)
+    # # Increment probability (up to 1)
+    # map[px, py] = min(1, map[px, py] + 0.01)
+    # # Convert probability to grayscale (0-255)
+    # v = int(map[px, py] * 255)
+    # color = v * 256**2 + v * 256 + v  # Convert to 24-bit color
+    # display.setColor(color)
+    # display.drawPixel(px, py)
 
     # LIDAR processing
     ranges = np.array(lidar.getRangeImage())
     ranges = np.where(np.isinf(ranges), 100, ranges)  # Handle infinite values
-    angles = np.linspace(3.1415, -3.1415, len(ranges))
+    # angles = np.linspace(3.1415, -3.1415, len(ranges))
     
+    x_r, y_r = [], [] # coordinates in robot's system
+    x_w, y_w = [], [] # coordinates in world's system
     for i, angle in enumerate(angles):
-        if not np.isfinite(ranges[i]) or abs(ranges[i]) > 1:
+        try:
+            # Validate the range value
+            if not np.isfinite(ranges[i]) or abs(ranges[i]) > 1:
+                #print(f"Skipping invalid range at index {i}: {ranges[i]}")
+                continue
+            
+            # Robot's coordinate transformation
+            x_i = ranges[i] * np.cos(angle)
+            y_i = ranges[i] * np.sin(angle)
+            x_r.append(x_i)
+            y_r.append(y_i)
+
+            # World's coordinate transformation
+            x_w_s = x_i * np.cos(omegaz) - y_i * np.sin(omegaz) + xw
+            y_w_s = x_i * np.sin(omegaz) + y_i * np.cos(omegaz) + yw
+
+            # Clamp display coordinates
+            #x_w_s = max(0, min(300, x_w_s))
+            #y_w_s = max(0, min(300, y_w_s))
+
+            # Append valid coordinates
+            x_w.append(x_w_s)
+            y_w.append(y_w_s)
+
+            # Debugging output
+            #print(f"i: {i}, ranges[i]: {ranges[i]:.2f}, angle: {angle:.2f}, x_i: {x_i:.2f}, y_i: {y_i:.2f}, omegaz: {omegaz:.2f}")
+
+            # Display pixel
+            #print(f"Drawing pixel at ({x_w_s}, {y_w_s})")
+            #display.setColor(0xFFFFFF)
+            #px, py = world2map(x_w_s, y_w_s)
+            #display.drawPixel(px,py)
+
+            
+            # Convert world coordinates to map indices
+            px, py = world2map(x_w_s, y_w_s)
+
+            # Increment probability (up to 1)
+            map[px, py] = min(1, map[px, py] + 0.01)
+
+            # Convert probability to grayscale (0-255)
+            v = int(map[px, py] * 255)
+            color = v * 256**2 + v * 256 + v  # Convert to 24-bit color
+
+            # Display the pixel
+            display.setColor(color)
+            display.drawPixel(px, py)
+        except Exception as e:
+            print(f"Error at index {i}: {e}")
             continue
-        x_i, y_i = ranges[i] * np.cos(angle), ranges[i] * np.sin(angle)
-        x_w_s, y_w_s = x_i * np.cos(omegaz) - y_i * np.sin(omegaz) + xw, \
-                       x_i * np.sin(omegaz) + y_i * np.cos(omegaz) + yw
-        px, py = world2map(x_w_s, y_w_s)
-        map[px, py] = min(1, map[px, py] + 0.01)
-        v = int(map[px, py] * 255)
-        display.setColor(v * 256**2 + v * 256 + v)
-        display.drawPixel(px, py)
