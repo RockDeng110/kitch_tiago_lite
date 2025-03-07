@@ -81,8 +81,8 @@ def calculate_robot_pose():
 # Convert world coordinates to map
 
 def world2map(xw, yw, map_width=300, map_height=300, 
-              world_min_x=-0.195, world_max_x=0.805, 
-              world_min_y=-0.25, world_max_y=0.75):
+              world_min_x=-2.25, world_max_x=2.25, 
+              world_min_y=-3.92, world_max_y=1.75):
     scale_x = map_width / (world_max_x - world_min_x)
     scale_y = map_height / (world_max_y - world_min_y)
     px = int((xw - world_min_x) * scale_x)
@@ -93,9 +93,28 @@ def world2map(xw, yw, map_width=300, map_height=300,
 # Initialize map
 display = robot.getDevice('display')
 display.setColor(0xFF0000)
+print(f"Updated Display size: {display.getWidth()}x{display.getHeight()}")
+
+
+# Display test
+# for x in range(300):
+#     for y in range(300):
+#         display.setColor(0xFF0000)  # Red
+#         display.drawPixel(x, y)  # Draw a red screen
+
+
 map = np.zeros((300, 300))
 kernel_size = 30
 kernel = np.ones((kernel_size, kernel_size))
+
+def update_probability_map(px, py, detected):
+    """Update probability map with sensor data."""
+    if detected:
+        map[px, py] = min(1.0, map[px, py] + 0.05)  # Increase probability for obstacles
+    else:
+        map[px, py] = max(0.0, map[px, py] - 0.02)  # Decrease probability when space is cleared
+
+
 
 def shortest_turn_angle(target_angle, current_angle):
     """Returns the shortest angle difference between target and current."""
@@ -115,7 +134,7 @@ while robot.step(TIMESTEP) != -1:
     # Ensure shortest turn
     alpha = shortest_turn_angle(desired_angle, omegaz)
 
-    print(f"rho: {rho}, alpha: {alpha}, index: {index}")
+    # print(f"rho: {rho}, alpha: {alpha}, index: {index}")
 
     # Switch to next waypoint if close enough
     if rho < 0.1 and index < len(WP) and index >= 0:
@@ -146,10 +165,13 @@ while robot.step(TIMESTEP) != -1:
     # display.drawPixel(px, py)
 
     # LIDAR processing
-    ranges = np.array(lidar.getRangeImage())
-    ranges = np.where(np.isinf(ranges), 100, ranges)  # Handle infinite values
-    # angles = np.linspace(3.1415, -3.1415, len(ranges))
-    
+    ranges = lidar.getRangeImage()
+    # Filter infinite values
+    ranges = np.where(np.isinf(ranges), 100, ranges)  # Replace infinite values with 100
+    print(f"LIDAR data: {ranges}")  # Print first 10 values
+
+   
+
     x_r, y_r = [], [] # coordinates in robot's system
     x_w, y_w = [], [] # coordinates in world's system
     for i, angle in enumerate(angles):
@@ -191,7 +213,9 @@ while robot.step(TIMESTEP) != -1:
             px, py = world2map(x_w_s, y_w_s)
 
             # Increment probability (up to 1)
-            map[px, py] = min(1, map[px, py] + 0.01)
+            # map[px, py] = min(1, map[px, py] + 0.01)
+            update_probability_map(px, py, detected=True)
+
 
             # Convert probability to grayscale (0-255)
             v = int(map[px, py] * 255)
@@ -200,6 +224,7 @@ while robot.step(TIMESTEP) != -1:
             # Display the pixel
             display.setColor(color)
             display.drawPixel(px, py)
+            print(f"Drawing trajectory pixel at ({px}, {py}) with value {map[px, py]:.2f}")
         except Exception as e:
             print(f"Error at index {i}: {e}")
             continue

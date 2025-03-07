@@ -826,6 +826,8 @@ Robot {
   translation 0 0 0.095
   children [
     Display {
+      width 300
+      height 300
     }
     Compass {
     }
@@ -1095,7 +1097,6 @@ Robot {
                     ]
                     endPoint DEF NECK Solid {
                       translation 0.182 0 0
-                      rotation -0.7635948648418007 0 0.6456956577113028 0
                       children [
                         Shape {
                           appearance PBRAppearance {
@@ -2588,4 +2589,5 @@ Robot {
     density -1
     mass 28.26649
   }
+  controller "kitchen_track"
 }
