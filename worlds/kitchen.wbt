@@ -41,6 +41,7 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/kitchen/breakfast/protos/BiscuitBox.proto"
 
 WorldInfo {
+  basicTimeStep 64
 }
 Viewpoint {
   fieldOfView 1.1
