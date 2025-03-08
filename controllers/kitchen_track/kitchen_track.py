@@ -20,12 +20,6 @@ def degrees_to_radians(degrees):
     return degrees * (math.pi / 180)
 
 
-
-
-
-
-
-
 # Create the robot instance
 robot = Supervisor()
 
@@ -253,7 +247,7 @@ while robot.step(TIMESTEP) != -1:
             index += 1
         else:
             index -= 1
-            if index < 0:
+            if index == 0:
                 break
         if index >= len(WP) - 1:
             move_forward = 0
@@ -325,14 +319,13 @@ while robot.step(TIMESTEP) != -1:
     # plt.legend()
     # plt.pause(0.01)
 
-    # Perform 2D convolution to compute the configuration space every 100 timesteps
-    if robot.step(TIMESTEP) % 100 == 0:
-        # cmap = signal.convolve2d(map, kernel, mode='same')
-        cmap = fft_convolve2d(map, kernel)  # Use FFT-based convolution
-        cspace = cmap > 0.9  # Threshold to mark obstacles
-        
-        # Visualize the configuration space
-        plt.clf()
-        plt.imshow(cspace, cmap='gray')
-        plt.title("Configuration Space")
-        plt.pause(0.001)
+# Perform 2D convolution to compute the configuration space every 100 timesteps
+# cmap = signal.convolve2d(map, kernel, mode='same')
+cmap = fft_convolve2d(map, kernel)  # Use FFT-based convolution
+cspace = cmap > 0.9  # Threshold to mark obstacles
+
+# Visualize the configuration space
+plt.clf()
+plt.imshow(cspace, cmap='gray')
+plt.title("Configuration Space")
+plt.pause(1000)
